@@ -1,0 +1,22 @@
+# Local run artifacts - never commit
+logs/
+*.log
+hardware-profile.json
+benchmark-results.json
+
+# Never commit model weights or blobs
+*.gguf
+models/
+.ollama/
+
+# Editor / OS noise
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Any credential that sneaks in
+.env
+*.env
+!*.env.template
