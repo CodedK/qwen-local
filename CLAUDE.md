@@ -32,7 +32,10 @@ relevant single script over hand-rolling commands:
 | `configure-clients.ps1` | Write Qwen Code + Continue configs |
 | `import-local-gguf.ps1` | Rescue a downloaded-but-uncommitted GGUF |
 | `benchmark.ps1` | Measure real tok/s and GPU split |
-| `update-claude-stack.ps1` | Update Claude Code, marketplaces, npm CLIs, extensions |
+
+The Claude Code toolchain updater that used to live here
+(`update-claude-stack.ps1`) has moved to its own repo, **claude-updater**, as a
+cross-platform Python tool. It was never Qwen-specific. Don't re-add it here.
 
 ---
 
@@ -78,7 +81,6 @@ With ≥24 GB VRAM the dense 27B fits entirely on the GPU and jumps from ~1.4 to
 | `import-local-gguf.ps1` | Run, rescued a real orphaned blob |
 | `benchmark.ps1` | Run on all three models |
 | `install.ps1` | Run end-to-end (idempotent path) |
-| `update-claude-stack.ps1` | Dry-run only — **live run untested** |
 
 ---
 

@@ -158,19 +158,16 @@ Full list of failure modes and fixes: [docs/troubleshooting.md](docs/troubleshoo
 
 ## Companion utility: keeping the AI tooling current
 
-Not Qwen-specific, but useful on every machine this repo lands on —
-`update-claude-stack.ps1` updates Claude Code, its plugin marketplaces, related
-global npm CLIs and the VS Code extensions in one pass, then prints a
-before/after version table.
+This repo used to ship `update-claude-stack.ps1` for updating Claude Code, its
+plugin marketplaces, related global npm CLIs and the VS Code extensions.
 
-```powershell
-.\scripts\update-claude-stack.ps1 -DryRun     # show what would change
-.\scripts\update-claude-stack.ps1             # do it
+It was never Qwen-specific, so it now lives in its own repo as a cross-platform
+Python tool: **[claude-updater](https://github.com/CodedK/claude-updater)**.
+
+```bash
+python update_claude.py --dry-run   # show what would change
+python update_claude.py             # do it
 ```
-
-It backs up `installed_plugins.json` and friends to `~/.claude/backups/` before
-touching anything. Flags: `-SkipNpm`, `-SkipExtensions`, `-SkipMarketplaces`,
-`-NpmPackages`.
 
 ---
 
