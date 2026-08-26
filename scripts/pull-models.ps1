@@ -58,11 +58,15 @@ Write-Host ''
 
 # ---- pull with retries -------------------------------------------------------
 $failed = @()
+$index  = 0
 foreach ($t in $targets) {
+    $index++
     $ok = $false
     for ($attempt = 1; $attempt -le $MaxAttempts -and -not $ok; $attempt++) {
         "=== PULL START (attempt $attempt/$MaxAttempts) $t ===" | Tee-Object -FilePath $log -Append | Out-Null
-        Write-Host ("  [{0}/{1}] {2}" -f $attempt, $MaxAttempts, $t) -ForegroundColor DarkCyan
+        # item index first, then retry number only when actually retrying
+        $suffix = if ($attempt -gt 1) { " (retry $($attempt - 1)/$($MaxAttempts - 1))" } else { '' }
+        Write-Host ("  [{0}/{1}] {2}{3}" -f $index, $targets.Count, $t, $suffix) -ForegroundColor DarkCyan
 
         & $ollama pull $t 2>&1 | Tee-Object -FilePath $log -Append | Out-Null
         $code = $LASTEXITCODE

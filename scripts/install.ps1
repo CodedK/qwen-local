@@ -156,7 +156,18 @@ if ($SkipClients) {
     Write-Step 'Installing client front-ends'
 
     Write-Host '    Qwen Code CLI ...'
-    & npm install -g '@qwen-code/qwen-code@latest' 2>&1 | Select-Object -Last 1
+    # MUST be npm.cmd: the `npm` PowerShell shim mangles arguments when invoked
+    # with & and fails with 'Unknown command: "pm"'.
+    $npmExe = if (Get-Command 'npm.cmd' -ErrorAction Ignore) { 'npm.cmd' } else { 'npm' }
+    & $npmExe install -g '@qwen-code/qwen-code@latest' 2>&1 |
+        Where-Object { $_ -match 'added|changed|up to date|npm error' } |
+        ForEach-Object { "      $_" }
+    if (-not (Get-Command 'qwen' -ErrorAction Ignore)) {
+        Write-Warning '      qwen CLI still not on PATH - open a new terminal, or install manually:'
+        Write-Warning '        npm.cmd install -g @qwen-code/qwen-code@latest'
+    } else {
+        Write-Host ("      qwen {0} ok" -f ((& qwen --version 2>$null) | Select-Object -First 1)) -ForegroundColor Green
+    }
 
     if (Test-Cmd 'code') {
         foreach ($ext in @('saoudrizwan.claude-dev', 'Continue.continue')) {

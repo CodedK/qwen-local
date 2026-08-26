@@ -36,6 +36,46 @@ relevant single script over hand-rolling commands:
 
 ---
 
+## Running this on a NEW machine
+
+This is the common case: the user clones the repo on another PC and asks for the
+same setup. Do this:
+
+```powershell
+cd <repo>
+.\scripts\install.ps1 -All      # -All also pulls the big uncensored dense model
+```
+
+Then confirm three things and report them:
+
+1. `ollama list` shows the aliases (`qwen-coder`, `qwen38-9b`, and `qwen38-27b`
+   if `-All` was used).
+2. `.\scripts\benchmark.ps1` — report **measured** tok/s, never estimates.
+3. Cline's one manual UI step (see below) — it cannot be scripted.
+
+**Do not re-derive model choices.** `detect-hardware.ps1` picks the tier. If the
+user wants both uncensored sizes (a common request), pass `-All`; the tier logic
+only selects one.
+
+**On a stronger machine, expectations change.** The reference box is VRAM-starved.
+With ≥24 GB VRAM the dense 27B fits entirely on the GPU and jumps from ~1.4 to
+~30-45 tok/s. Re-benchmark rather than quoting the numbers below.
+
+### Status of each script
+
+| Script | Verified |
+|---|---|
+| `detect-hardware.ps1` | Run, output confirmed correct |
+| `pull-models.ps1` | Run, incl. retry path |
+| `create-modelfiles.ps1` | Run |
+| `configure-clients.ps1` | Run, configs verified |
+| `import-local-gguf.ps1` | Run, rescued a real orphaned blob |
+| `benchmark.ps1` | Run on all three models |
+| `install.ps1` | Run end-to-end (idempotent path) |
+| `update-claude-stack.ps1` | Dry-run only — **live run untested** |
+
+---
+
 ## Established facts — do NOT re-research these
 
 ### Architecture matters more than parameter count
