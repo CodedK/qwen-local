@@ -43,6 +43,12 @@ same setup. Do this:
 
 ```powershell
 cd <repo>
+
+# Required once on a fresh machine, or every script fails with a security error:
+# cloned files carry Windows' Mark of the Web and the default policy blocks them.
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+Get-ChildItem -Recurse *.ps1 | Unblock-File
+
 .\scripts\install.ps1 -All      # -All also pulls the big uncensored dense model
 ```
 

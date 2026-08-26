@@ -14,10 +14,20 @@ messages — off a metered cloud model and onto the GPU you already own.
 ```powershell
 git clone https://github.com/CodedK/qwen-local.git $env:USERPROFILE\qwen-local
 cd $env:USERPROFILE\qwen-local
-.\scripts\install.ps1
+
+# One-time, on a fresh machine: allow local scripts to run and clear the
+# "downloaded from the internet" flag Windows puts on cloned files.
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+Get-ChildItem -Recurse *.ps1 | Unblock-File
+
+.\scripts\install.ps1 -All
 ```
 
 That's it. The installer is idempotent — re-run it any time.
+
+`-All` also pulls the large uncensored dense model; omit it for a leaner install.
+Without those two one-time commands, PowerShell will refuse to run the scripts
+with a security error.
 
 To see what it *would* do without changing anything:
 
