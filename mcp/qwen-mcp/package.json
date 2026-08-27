@@ -1,0 +1,23 @@
+{
+  "name": "qwen-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server exposing the local Ollama Qwen models as tools (ask_qwen, list_qwen_models, qwen_health).",
+  "license": "MIT",
+  "bin": {
+    "qwen-mcp": "index.js"
+  },
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {}
+}

@@ -3,6 +3,12 @@ logs/
 *.log
 hardware-profile.json
 benchmark-results.json
+# qwen-task.ps1 -UseSettingsFile writes a workspace .qwen/settings.json and
+# restores it in a finally block; a killed run leaves it behind.
+.qwen/
+# ask-qwen.ps1 -OutFile, configure-clients.ps1, install-qwen-mcp.ps1 and
+# qwen-task.ps1 all copy a file to <name>.bak-<timestamp> before replacing it.
+*.bak-*
 
 # Never commit model weights or blobs
 *.gguf
@@ -20,3 +26,13 @@ desktop.ini
 .env
 *.env
 !*.env.template
+
+# Local state written by Claude Code plugins - noisy, machine-specific, and
+# already responsible for one accidental 23k-line commit.
+.claude-flow/
+.claude/proven-config.json
+.claude/.proven-config-version
+
+# PowerShell writes a ModuleAnalysisCache into the cwd when APPDATA is not
+# inherited (happens when the scripts are driven from a POSIX shell).
+Microsoft/
