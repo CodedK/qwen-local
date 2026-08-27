@@ -139,6 +139,37 @@ ollama ps                 # shows the GPU/CPU split - watch this number
 
 ---
 
+## Delegating work from Claude Code
+
+The local models are slow but free, so the useful pattern is not to replace
+Claude Code with Qwen. It is to let Claude hand Qwen the bulk, mechanical part
+of a job: docstring passes, test scaffolds, changelog drafts, log summarisation.
+Work whose output you verify by reading it, and where a slow round trip costs
+nothing because nobody is sitting there watching.
+
+The primitive is one script. Qwen returns text on stdout, Claude reviews it and
+applies the edit itself.
+
+```powershell
+.\scripts\ask-qwen.ps1 -Prompt 'Summarise what this script does in two sentences.' -Files scripts\qwen-models.ps1
+```
+
+| Option | What it is | Qwen edits files? |
+|---|---|---|
+| A. `ask-qwen.ps1` | Shell out, get text back. Driven by the `delegate-to-qwen` skill. | No |
+| B. `mcp/qwen-mcp` | An MCP server, so `ask_qwen` is a native tool next to `Read` and `Bash`. Register it with `install-qwen-mcp.ps1`. | No |
+| C. `qwen-task.ps1` | Hands a whole file-touching task to the Qwen Code CLI, behind git safety rails. | Yes |
+
+When to pick which, the prompt patterns that survive a small model, and how each
+one fails: [docs/delegation.md](docs/delegation.md).
+
+**Latency is the catch.** `qwen-coder` generates at a measured 13.5 tok/s on the
+reference box, a cold model load costs 7-50 s on top of that, and one small
+single-file edit through option C took 487 seconds end to end. Delegate
+background chores. Keep all of this off any interactive path.
+
+---
+
 ## If it's slow
 
 Run through these in order — the first one is by far the most common:
@@ -171,6 +202,28 @@ python update_claude.py             # do it
 
 ---
 
+## Scripts
+
+`install.ps1` runs `detect-hardware`, `pull-models`, `create-modelfiles`,
+`configure-clients` and then `benchmark`. Everything else is run on demand. All
+of them are idempotent and safe to re-run on their own.
+
+| Script | Job |
+|---|---|
+| `install.ps1` | Detect, install, pull, configure. The only one you have to run |
+| `detect-hardware.ps1` | Profile the box, pick a tier, write `hardware-profile.json` |
+| `pull-models.ps1` | Download the tier's models (has retries) |
+| `create-modelfiles.ps1` | Build short tuned aliases |
+| `configure-clients.ps1` | Write Qwen Code + Continue configs |
+| `import-local-gguf.ps1` | Rescue a downloaded-but-uncommitted GGUF |
+| `benchmark.ps1` | Measure real tok/s and GPU split |
+| `ask-qwen.ps1` | Send a prompt, plus files, to a local model and print the answer (option A) |
+| `qwen-models.ps1` | List the tags `ask-qwen.ps1` can target, with size and family |
+| `qwen-task.ps1` | Hand a whole file-touching task to Qwen Code, behind git rails (option C) |
+| `install-qwen-mcp.ps1` | Register the `qwen-mcp` server with Claude Code (option B) |
+
+---
+
 ## Documentation
 
 | Doc | Contents |
@@ -179,6 +232,7 @@ python update_claude.py             # do it
 | [docs/model-catalog.md](docs/model-catalog.md) | Verified repos, exact file sizes, quant tradeoffs |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Every failure hit during development, with fixes |
 | [docs/clients.md](docs/clients.md) | Per-client configuration details |
+| [docs/delegation.md](docs/delegation.md) | Handing work to Qwen from Claude Code: the three options compared |
 | [CLAUDE.md](CLAUDE.md) | Context for Claude Code so it doesn't re-derive all this |
 
 ---

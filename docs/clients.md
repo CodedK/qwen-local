@@ -11,6 +11,9 @@ Three front-ends, all pointed at the same local Ollama server.
 `configure-clients.ps1` writes the first two, generating entries only for models
 actually installed. Existing files are backed up to `*.bak-<timestamp>` first.
 
+Cursor is deliberately not on that list. [Cursor](#cursor) below records why it
+cannot reach a local model, and the one route that does work.
+
 ---
 
 ## The shared endpoint
@@ -64,8 +67,12 @@ Generated `~/.qwen/settings.json`:
 
 ### Approval modes
 
-There is **no `--yolo` flag** in v0.22. Approval is configured via
-`tools.approvalMode`:
+`--approval-mode` and `--yolo` are real, validated top-level flags in v0.22.1.
+They are simply omitted from `--help`, which is why they look like they do not
+exist. Proof: `qwen --approval-mode bogus -p hi` exits 1 with `Invalid values:
+Argument: approval-mode, Given: "bogus", Choices: "plan", "default",
+"auto-edit", "auto", "yolo"`. The flag is consumed ahead of any settings file,
+so it is the mechanism to reach for first:
 
 | Mode | Behaviour |
 |---|---|
@@ -75,8 +82,13 @@ There is **no `--yolo` flag** in v0.22. Approval is configured via
 | `auto` | Classifier decides per call |
 | `yolo` | Auto-approves everything |
 
-Change it live with `/approval-mode`, or per project — create
-`.qwen/settings.json` **in the project directory**:
+```powershell
+qwen --approval-mode auto-edit -p 'Add a docstring to every function in src\parse.py'
+```
+
+Inside a running session, change it with `/approval-mode`. On an older build
+that does not accept the flag, or to pin the setting for a whole project, create
+`.qwen/settings.json` **in the project directory** instead:
 
 ```json
 { "tools": { "approvalMode": "auto-edit" } }
@@ -85,6 +97,9 @@ Change it live with `/approval-mode`, or per project — create
 Scoping it per project keeps your global default cautious. `yolo` auto-executes
 shell commands at your privilege level; reserve it for throwaway directories, and
 combine with `--sandbox` where possible.
+
+`qwen-task.ps1` probes for the flag at run time and prefers it, falling back to a
+temporary workspace `.qwen/settings.json` only under `-UseSettingsFile`.
 
 ### Useful commands
 
@@ -160,6 +175,61 @@ Cline for smaller, targeted edits.
 
 ---
 
+## Cursor
+
+Not configured by `configure-clients.ps1`, and the reason is worth writing down
+because it looks like it ought to just work.
+
+Cursor's model calls are made by Cursor's backend, not by the editor on your
+machine. That backend is sandboxed and cannot reach `localhost:11434`, so
+pointing **Override OpenAI Base URL** at the local server fails outright. The
+only way to make it connect is to publish Ollama on a public HTTPS tunnel:
+
+```powershell
+cloudflared tunnel --url http://localhost:11434/v1
+# paste the https://... URL into Settings -> Models -> Override OpenAI Base URL
+```
+
+`ngrok http 11434` does the same job. Either way three things stay true:
+
+- Your prompts and your code travel out to Cursor's servers and back down the
+  tunnel, which defeats most of the point of running the model locally.
+- Tab autocomplete does not change. It is wired to Cursor's proprietary Fusion
+  model and ignores the base URL override entirely.
+- The tunnel publishes an unauthenticated API to the internet for as long as it
+  is up.
+
+For a local model in an IDE, use [Continue.dev](#continuedev) instead. It talks
+to `localhost` directly, `configure-clients.ps1` has already written its config,
+and it covers chat, edit and autocomplete.
+
+### The exception: MCP
+
+Cursor does speak MCP, and an MCP server runs locally as a child process of the
+editor rather than inside the backend. So the `qwen-mcp` server works in Cursor
+with no tunnel and nothing leaving the machine. This is the clean way to get
+local Qwen into Cursor.
+
+Add the entry to `~/.cursor/mcp.json`, or `.cursor/mcp.json` for one project:
+
+```json
+{
+  "mcpServers": {
+    "qwen": {
+      "type": "stdio",
+      "command": "C:\\Program Files\\nodejs\\node.exe",
+      "args": ["C:\\path\\to\\qwen-local\\mcp\\qwen-mcp\\index.js"],
+      "env": { "OLLAMA_HOST": "http://127.0.0.1:11434" }
+    }
+  }
+}
+```
+
+`ask_qwen`, `list_qwen_models` and `qwen_health` then show up as tools. Full
+details in [mcp/qwen-mcp/README.md](../mcp/qwen-mcp/README.md).
+
+---
+
 ## Which client for which job
 
 | Task | Use |
@@ -168,6 +238,7 @@ Cline for smaller, targeted edits.
 | Single targeted edit with diff review | Cline |
 | Writing code, want completions | Continue autocomplete |
 | Quick question, no files | `ollama run qwen38-9b` |
+| Local Qwen inside Cursor | the `qwen-mcp` MCP server, never the base URL override |
 
 ---
 

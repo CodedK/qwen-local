@@ -150,20 +150,32 @@ requires fill-in-the-middle (FIM) training, which only `-base` models have.
 
 ## Qwen Code will not edit files in non-interactive mode
 
-**Cause.** There is no `--yolo` flag in v0.22. Approval is a setting.
+**Cause.** The default approval mode asks before every tool call, and there is
+nobody there to answer.
 
-**Fix.** Set it per project so global behaviour stays cautious — create
-`.qwen/settings.json` **in the project directory**:
+**Fix.** Pass `--approval-mode`. It is a real, validated top-level flag in v0.22.1
+and is merely omitted from `--help`, which is why it is easy to conclude it does
+not exist:
 
-```json
-{ "tools": { "approvalMode": "yolo" } }
+```powershell
+qwen --approval-mode auto-edit -p 'Add a docstring to every function in src\parse.py'
 ```
 
 Modes: `default` (ask), `auto-edit` (auto-approve edits only), `auto`
-(classifier-evaluated), `yolo` (approve everything), `plan` (read-only).
+(classifier-evaluated), `yolo` (approve everything), `plan` (read-only). `--yolo`
+is likewise hidden but real. The flag is consumed ahead of any settings file.
+
+On an older build that does not register it, fall back to a project-scoped
+`.qwen/settings.json`, which keeps global behaviour cautious:
+
+```json
+{ "tools": { "approvalMode": "auto-edit" } }
+```
 
 Auto-executing shell commands runs at your privilege level. Prefer `auto-edit`
 for day-to-day work; reserve `yolo` for throwaway directories.
+`scripts/qwen-task.ps1` wraps all of this in git safety rails - see
+[delegation.md](delegation.md).
 
 ---
 
