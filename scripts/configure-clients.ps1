@@ -41,6 +41,15 @@ function Backup-IfExists([string]$path) {
     }
 }
 
+# Set-Content -Encoding UTF8 emits a BOM on Windows PowerShell 5.1, this repo's
+# target shell. Qwen Code rejects a BOM'd settings.json outright - it renames the
+# file to settings.json.corrupted and falls back to defaults, so every local model
+# provider written here silently disappears.
+function Write-Utf8NoBom([string]$path, [string]$text) {
+    $enc = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($path, $text, $enc)
+}
+
 # Catalogue of aliases this repo may create, in preference order.
 $catalog = @(
     @{ alias='qwen-coder'; label='Qwen3-Coder 30B-A3B (local)'; desc='MoE agentic coder, 3B active params - best for file editing and tool use' }
@@ -84,7 +93,7 @@ $qwenConfig = [ordered]@{
     security       = [ordered]@{ auth = [ordered]@{ selectedType = 'openai' } }
     model          = [ordered]@{ name = $present[0].alias }
 }
-$qwenConfig | ConvertTo-Json -Depth 8 | Set-Content -Path $qwenSettings -Encoding UTF8
+Write-Utf8NoBom $qwenSettings ($qwenConfig | ConvertTo-Json -Depth 8)
 Write-Host "    wrote $qwenSettings (default model: $($present[0].alias))" -ForegroundColor Green
 
 # ---------------------------------------------------------- Continue.dev -----
@@ -133,7 +142,7 @@ if ($fim) {
     [void]$yaml.AppendLine('# Fix: ollama pull qwen2.5-coder:1.5b-base, then re-run this script.')
 }
 
-Set-Content -Path $contConfig -Value $yaml.ToString() -Encoding UTF8
+Write-Utf8NoBom $contConfig $yaml.ToString()
 Write-Host "    wrote $contConfig" -ForegroundColor Green
 if ($fim) { Write-Host "    autocomplete model: $fim" -ForegroundColor Green }
 

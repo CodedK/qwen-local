@@ -82,7 +82,10 @@ foreach ($m in $Models) {
 }
 
 $out = Join-Path (Split-Path $PSScriptRoot -Parent) 'benchmark-results.json'
-$results | ConvertTo-Json -Depth 5 | Set-Content -Path $out -Encoding UTF8
+# -Encoding UTF8 emits a BOM on PS 5.1, and a BOM'd .json is rejected by node and
+# python parsers. This file is read back by qwen-task.ps1 and by hand.
+$enc = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($out, ($results | ConvertTo-Json -Depth 5), $enc)
 
 Write-Host ""
 Write-Host "  Saved to $out" -ForegroundColor DarkGray

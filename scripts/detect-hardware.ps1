@@ -162,7 +162,11 @@ $hwProfile = [ordered]@{
 }
 
 $outPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'hardware-profile.json'
-$hwProfile | ConvertTo-Json -Depth 6 | Set-Content -Path $outPath -Encoding UTF8
+# -Encoding UTF8 emits a BOM on PS 5.1. PowerShell tolerates one on the way back in,
+# but node and python both refuse to parse a BOM'd .json and this file is a published
+# artifact other tools read.
+$enc = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($outPath, ($hwProfile | ConvertTo-Json -Depth 6), $enc)
 
 if (-not $Quiet) {
     Write-Host ""
