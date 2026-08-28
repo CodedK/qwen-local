@@ -78,9 +78,9 @@ only selects one.
 
 **On a stronger machine, expectations change.** The reference box is VRAM-starved.
 With >=24 GB VRAM the dense 27B fits entirely on the GPU and jumps from ~1.4 to
-~30-45 tok/s. That figure is a PROJECTION from the bandwidth model, not a
-measurement - nothing in this repo has been run on such a box. Re-benchmark
-rather than quoting it.
+**41.2 tok/s - now MEASURED** on the RTX 3090 box below, landing inside the
+30-45 band the bandwidth model predicted. The model is sound; still re-benchmark
+on any new box rather than quoting either number.
 
 ### Status of each script
 
@@ -88,11 +88,11 @@ rather than quoting it.
 |---|---|
 | `detect-hardware.ps1` | Run, output confirmed correct |
 | `pull-models.ps1` | Run, incl. retry path |
-| `create-modelfiles.ps1` | Run |
-| `configure-clients.ps1` | Run, configs verified |
-| `import-local-gguf.ps1` | Run, rescued a real orphaned blob |
-| `benchmark.ps1` | Run on all three models |
-| `install.ps1` | Run end-to-end (idempotent path) |
+| `create-modelfiles.ps1` | Run on both boxes; `qwen-coder-next`, `qwen-fim` and the profile-derived contexts all built on the 3090 |
+| `configure-clients.ps1` | Run on both boxes, configs verified BOM-less and parsing |
+| `import-local-gguf.ps1` | Run twice, rescued a real orphaned blob on each box |
+| `benchmark.ps1` | Run on all models on both boxes |
+| `install.ps1` | Run end-to-end on both boxes, including the reordered steps and the `>=20 GB` tuning branch. **Unverified:** the `10-20 GB` branch, which no box here has |
 | `ask-qwen.ps1` | Run live; all six exit codes fired, UTF-8 round-trip proved |
 | `qwen-models.ps1` | Run |
 | `qwen-task.ps1` | Run; findings reproduced first, fixed, then re-run |
@@ -187,6 +187,53 @@ Two things to take from this table:
 dense 27B; measured 1.39. Apply a ~1.5-1.7× overhead factor for PCIe transfer and
 sync when a model is heavily offloaded.
 
+### Measured on the 24 GB machine
+
+RTX 3090 (24 GB), Core Ultra 9 285K (24c/24t), 128 GB DDR5-4400 dual-channel
+(~52.8 GB/s usable). Ollama 0.33.1, flash attention on, q8_0 KV cache.
+**Desktop is drawn by the 3090** and holds 1.5 GB idle, up to ~4.3 GB busy.
+
+| Model | Split | gen tok/s | prompt tok/s | load |
+|---|---|---|---|---|
+| `qwen-coder` (30B MoE) @ ctx 32768 | 100% GPU | **166.4** | 177.1 | 11.7 s |
+| `qwen38-27b` (28B dense) @ ctx 32768 | 100% GPU | **41.2** | 331.5 | 7.9 s |
+| `qwen-coder-next` (80B MoE) @ ctx 32768 | 57% CPU / 43% GPU | **41.1** | 5.6 | 41.1 s |
+
+Against the 8 GB box: the 30B MoE went 13.5 -> 166.4 (12x), the dense 27B went
+1.39 -> 41.2 (30x). Architecture stops mattering once everything fits: the dense
+27B and the 80B MoE both land at ~41 tok/s by completely different routes.
+
+**`qwen-coder-next`'s prompt eval is 5.6 tok/s** - 30x slower than the 30B's.
+Prompt processing is compute-bound, so the 57% sitting on CPU dominates it. It is
+fine for a short prompt and a long answer; it is painful for a long prompt. Reach
+for it when you want the strongest local reasoning, not for bulk file context.
+
+**Context is free on this card, VRAM headroom is not.** Measured on `qwen-coder`,
+all 100% GPU: ctx 8192 -> 162.3 tok/s / 20990 MB, 16384 -> 167.6 / 21406,
+24576 -> 164.3 / 21822, 32768 -> 165.4 / 22319. Throughput is flat across the
+whole range, so there is no reason to run a short context - but each step costs
+~450 MB of VRAM, and VRAM is what runs out.
+
+**The paging trap was reproduced here, and the tell is PROMPT eval.** The very
+first benchmark on this box returned **13.1 tok/s generation and 1.8 tok/s
+prompt** for `qwen-coder`, while `ollama ps` cheerfully reported `100% GPU` at
+ctx 32768. Nothing was wrong with the context: the desktop happened to be holding
+~4.3 GB at that moment, pushing 22.3 GB of model past the 24.5 GB card. Re-run
+with an idle desktop, the identical config gave 166 tok/s. Note the ratio -
+generation fell 12x but prompt eval fell **98x** (177 -> 1.8). Generation is
+bandwidth-bound so PCIe partly keeps up; prompt eval is compute-bound and
+collapses completely. **If `ollama ps` says 100% GPU but prompt eval is in single
+digits, you are paging - close things holding VRAM, do not touch num_ctx.**
+
+The budget on a 24 GB card, measured: `qwen-coder` at ctx 32768 needs 20.4 GB and
+`qwen-fim` at ctx 4096 needs 2.2 GB, so both resident leaves only ~1.9 GB for the
+desktop. That works idle (1.5 GB) and pages when busy. `OLLAMA_MAX_LOADED_MODELS`
+is set to 2 because keeping the FIM model resident avoids a ~12 s reload of the
+agent on every autocomplete, and with both loaded the agent still measured
+**169.9 tok/s / 823 tok/s prompt**. The real fix for the headroom, not applied
+here because it is a hardware change: drive the displays from the Core Ultra's
+integrated GPU and leave the 3090 entirely to compute.
+
 ### Agentic latency, measured
 
 One small single-file edit via Qwen Code + `qwen-coder` (read file, reason, write
@@ -251,6 +298,20 @@ Working non-interactive form: `qwen -m <model> -p "<task>" [-o text]`.
    `100% GPU` while throughput drops ~200×. If a model that "fits" is
    inexplicably slow, **lower `num_ctx` first.** This is the #1 trap. Lower it on
    `/api/chat` or in the Modelfile - a `num_ctx` sent to `/v1` is discarded.
+
+   **`OLLAMA_GPU_OVERHEAD` is NOT the fix for this, on 0.33.1.** It looks like it
+   should be, and the scheduler does honour it - the log prints
+   `gpu memory available="2.3 GiB" free="22.8 GiB" overhead="20.0 GiB"`. But the
+   llama.cpp auto-fit pass that runs afterwards (`LLAMA_ARG_FIT`, on by default)
+   re-reads real device memory and overrides the decision: a 20 GiB reserve on a
+   24 GiB card still offloaded 33/33 layers and reported 100% GPU. Measured on
+   the RTX 3090 box. Worse, that fit pass sees ~2.6 GB MORE free VRAM than
+   nvidia-smi reports and defaults to only a 1024 MiB margin, so it can end up
+   with a negative real margin - which is the paging trap itself. Do not set
+   `OLLAMA_GPU_OVERHEAD` from `vramFreeMB` either: that reading counts every
+   consumer on the card, so it is not reproducible between runs (3840 MB and
+   5120 MB on the same idle box, minutes apart). `LLAMA_ARG_FIT_TARGET` is the
+   knob the fit pass actually reads - untested here, measure before trusting it.
 2. **Never benchmark during a download.** A concurrent `ollama pull` dropped the
    same model from 22.7 tok/s to 0.3 tok/s. Always finish pulls first.
 3. **`ollama` is not on PATH** in shells started before the installer ran.

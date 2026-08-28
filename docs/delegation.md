@@ -368,8 +368,20 @@ is VRAM-starved, so its numbers are a floor, not a forecast.
 | **>= 24 GB** | the dense `qwen38-27b` fits entirely in VRAM | **PROJECTED:** roughly 30-45 tok/s, against 1.39 offloaded. Not measured here | All three. B and C both become genuinely pleasant. |
 
 At >= 24 GB with **>= 64 GB of system RAM**, consider Qwen3-Coder-Next - 80B
-total, 3B active, 52 GB at Q4. `detect-hardware.ps1` selects it automatically at
-that tier.
+total, 3B active, 48 GB at Q4. **You have to pull it yourself at this size.**
+`detect-hardware.ps1` only selects it automatically from the `vram-64` tier up,
+which needs more than 32 GB of *usable* VRAM - a 24 GB card lands in `vram-32`
+and is given `qwen3-coder:30b` instead. To add it on a 24 GB box:
+
+```powershell
+.\scripts\pull-models.ps1 -Only 'qwen3-coder-next'
+.\scripts\create-modelfiles.ps1      # builds the qwen-coder-next alias
+.\scripts\configure-clients.ps1      # exposes it to Qwen Code and Continue
+```
+
+It will not fit in 24 GB of VRAM, so it runs hybrid - roughly half on the card,
+half streamed from system RAM. That is survivable only because it is MoE with 3B
+active; do not try the same with a dense model of that size.
 
 **Only the 8-12 GB row is measured**, on the reference machine: RTX 2060 SUPER
 8 GB, i7-7700, 64 GB DDR4-2133 dual-channel. **Every row below it is a projection

@@ -51,8 +51,12 @@ Plus short, tuned model aliases so you never type a 60-character Hugging Face re
 | Alias | Backing model | Role |
 |---|---|---|
 | `qwen-coder` | Qwen3-Coder 30B-A3B | Agentic file editing and tool use |
+| `qwen-coder-next` | Qwen3-Coder-Next 80B-A3B | Strongest local agent; needs ≥ 64 GB RAM, pull it yourself |
 | `qwen38-9b` | Qwen3.8 9B (uncensored) | Fast general chat, fits fully in VRAM |
 | `qwen38-27b` | Qwen3.8 27B (uncensored) | Hardest reasoning, slow unless you have VRAM |
+| `qwen-fim` | Qwen2.5-Coder 3B base | Tab autocomplete, context pinned low to save VRAM |
+
+Only the aliases whose backing model is actually installed get built.
 
 ---
 

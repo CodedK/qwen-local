@@ -52,9 +52,10 @@ function Write-Utf8NoBom([string]$path, [string]$text) {
 
 # Catalogue of aliases this repo may create, in preference order.
 $catalog = @(
-    @{ alias='qwen-coder'; label='Qwen3-Coder 30B-A3B (local)'; desc='MoE agentic coder, 3B active params - best for file editing and tool use' }
-    @{ alias='qwen38-9b';  label='Qwen3.8 9B uncensored (local)'; desc='Uncensored, fits entirely in VRAM - fastest responses' }
-    @{ alias='qwen38-27b'; label='Qwen3.8 27B uncensored (local)'; desc='Uncensored dense 28B - smartest but slow unless it fits in VRAM' }
+    @{ alias='qwen-coder';      label='Qwen3-Coder 30B-A3B (local)'; desc='MoE agentic coder, 3B active params - best for file editing and tool use' }
+    @{ alias='qwen-coder-next'; label='Qwen3-Coder-Next 80B-A3B (local)'; desc='Strongest local agent - MoE, half in VRAM and half in RAM, slower than 30B' }
+    @{ alias='qwen38-9b';       label='Qwen3.8 9B uncensored (local)'; desc='Uncensored, fits entirely in VRAM - fastest responses' }
+    @{ alias='qwen38-27b';      label='Qwen3.8 27B uncensored (local)'; desc='Uncensored dense 28B - smartest but slow unless it fits in VRAM' }
 )
 $present = $catalog | Where-Object { Test-Model $_.alias }
 
@@ -124,7 +125,11 @@ foreach ($m in $present) {
 
 # Autocomplete needs a *base* model with fill-in-the-middle training. Instruct
 # models produce chatty completions and are wrong for this role.
-$fim = @('qwen2.5-coder:3b-base', 'qwen2.5-coder:1.5b-base') | Where-Object { Test-Model $_ } | Select-Object -First 1
+# Prefer the qwen-fim alias: it pins a small num_ctx, and without that the model
+# inherits OLLAMA_CONTEXT_LENGTH and wastes ~680 MB of VRAM sitting next to the
+# agent (measured on a 24 GB card). Fall back to the raw bases if it is absent.
+$fim = @('qwen-fim', 'qwen2.5-coder:3b-base', 'qwen2.5-coder:1.5b-base') |
+       Where-Object { Test-Model $_ } | Select-Object -First 1
 if ($fim) {
     [void]$yaml.AppendLine("  - name: Tab autocomplete")
     [void]$yaml.AppendLine('    provider: ollama')
